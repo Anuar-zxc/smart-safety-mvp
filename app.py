@@ -1,10 +1,8 @@
 import time
 import uuid
 from pathlib import Path
-from collections import deque
 
 import cv2
-import numpy as np
 import streamlit as st
 
 from detection import (
@@ -15,14 +13,33 @@ from detection import (
     compute_torso_angle,
     check_fall,
     check_crowd,
+    check_fight,
 )
 
-VIDEO_PATH = str(Path(__file__).parent / "test_videos" / "demo_fall.mp4")
-FRAME_SKIP = 1          # process every Nth frame (speed on weak hardware)
+VIDEO_DIR = Path(__file__).parent / "test_videos"
+CAMERAS = [
+    {"id": "cam1", "name": "Камера 1", "location": "Вход на территорию",
+     "video": str(VIDEO_DIR / "cam1_fall.mp4"), "map_pos": (28, 62)},
+    {"id": "cam2", "name": "Камера 2", "location": "Центральная площадь",
+     "video": str(VIDEO_DIR / "cam2_crowd.mp4"), "map_pos": (68, 32)},
+    {"id": "cam3", "name": "Камера 3", "location": "Спортивный двор",
+     "video": str(VIDEO_DIR / "cam3_fight.mp4"), "map_pos": (50, 78)},
+]
+CAMERA_BY_ID = {c["id"]: c for c in CAMERAS}
+
+FRAME_SKIP = 1
 CROWD_THRESHOLD = 5
 FALL_COOLDOWN_SEC = 8
 CROWD_COOLDOWN_SEC = 8
+FIGHT_COOLDOWN_SEC = 8
+FIGHT_SUSTAIN_FRAMES = 4
 DETECT_CONF = 0.4
+
+EVENT_META = {
+    "fall": {"label": "Падение", "emoji": "🚨", "severity": "high"},
+    "fight": {"label": "Драка", "emoji": "🥊", "severity": "high"},
+    "crowd": {"label": "Скопление людей", "emoji": "👥", "severity": "medium"},
+}
 
 st.set_page_config(page_title="Smart Safety — Ситуационный центр", layout="wide", page_icon="🛡️")
 
@@ -85,6 +102,12 @@ div[data-testid="column"]:first-of-type .stButton > button {
 }
 div[data-testid="column"]:first-of-type .stButton > button:hover { filter: brightness(1.1); }
 
+/* camera tabs */
+.cam-tab-active > button {
+    border-color: var(--accent) !important; background: var(--accent-dim) !important;
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 /* status banner -- styled like the reference site's risk-summary cards */
 .status-banner {
     padding: 16px 18px; border-radius: 14px; font-weight: 700; font-size: 0.98rem;
@@ -116,7 +139,7 @@ div[data-testid="column"]:first-of-type .stButton > button:hover { filter: brigh
 
 /* map */
 .map-wrap {
-    position: relative; border-radius: 10px; overflow: hidden; height: 140px;
+    position: relative; border-radius: 10px; overflow: hidden; height: 160px;
     background:
         linear-gradient(rgba(79,107,255,0.05) 1px, transparent 1px) 0 0/22px 22px,
         linear-gradient(90deg, rgba(79,107,255,0.05) 1px, transparent 1px) 0 0/22px 22px,
@@ -124,16 +147,22 @@ div[data-testid="column"]:first-of-type .stButton > button:hover { filter: brigh
     border: 1px solid var(--border);
 }
 .map-dot {
-    position: absolute; width: 14px; height: 14px; border-radius: 50%;
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    position: absolute; width: 13px; height: 13px; border-radius: 50%;
+    transform: translate(-50%, -50%);
 }
 .map-dot::after {
-    content: ''; position: absolute; inset: -12px; border-radius: 50%;
+    content: ''; position: absolute; inset: -11px; border-radius: 50%;
     border: 1px solid currentColor; opacity: 0.3;
 }
-.map-caption {
-    text-align: center; font-size: 0.78rem; color: var(--text-dim); margin-top: 12px; font-weight: 500;
+.map-dot.active::before {
+    content: ''; position: absolute; inset: -18px; border-radius: 50%;
+    border: 1px dashed currentColor; opacity: 0.6;
 }
+.map-legend {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-size: 0.72rem;
+    color: var(--text-dim); font-weight: 500;
+}
+.map-legend span.sw { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
 
 /* alerts feed */
 .alerts-heading {
@@ -170,8 +199,8 @@ st.markdown(
     <div class="app-header">
         <div class="eyebrow-badge"><span class="dot"></span>Видеоаналитика для городской безопасности</div>
         <h1>Smart Safety — <span class="accent">ситуационный центр</span></h1>
-        <div class="subtitle">Детекция падений и скоплений людей в видеопотоке в реальном времени —
-            с автоматическим оповещением и передачей наряда.</div>
+        <div class="subtitle">Детекция падений, драк и скоплений людей по нескольким камерам в реальном
+            времени — с автоматическим оповещением и передачей наряда.</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -181,17 +210,23 @@ st.markdown(
 def init_state():
     if "alerts" not in st.session_state:
         st.session_state.alerts = []
+    if "active_cam" not in st.session_state:
+        st.session_state.active_cam = CAMERAS[0]["id"]
     if "last_fall_ts" not in st.session_state:
-        st.session_state.last_fall_ts = {}
+        st.session_state.last_fall_ts = {c["id"]: {} for c in CAMERAS}
     if "last_crowd_ts" not in st.session_state:
-        st.session_state.last_crowd_ts = 0.0
+        st.session_state.last_crowd_ts = {c["id"]: 0.0 for c in CAMERAS}
+    if "last_fight_ts" not in st.session_state:
+        st.session_state.last_fight_ts = {c["id"]: 0.0 for c in CAMERAS}
+    if "fight_streak" not in st.session_state:
+        st.session_state.fight_streak = {c["id"]: 0 for c in CAMERAS}
     if "model" not in st.session_state:
         with st.spinner("Загружаю YOLO модель (первый запуск может скачать веса)..."):
             model, has_pose = load_model()
         st.session_state.model = model
         st.session_state.has_pose = has_pose
-    if "tracker" not in st.session_state:
-        st.session_state.tracker = SimpleTracker()
+    if "trackers" not in st.session_state:
+        st.session_state.trackers = {c["id"]: SimpleTracker() for c in CAMERAS}
     if "running" not in st.session_state:
         st.session_state.running = False
 
@@ -199,11 +234,13 @@ def init_state():
 init_state()
 
 
-def add_alert(alert_type, frame_bgr, severity):
+def add_alert(camera_id, alert_type, frame_bgr, severity):
     thumb = cv2.resize(frame_bgr, (160, 120))
     thumb_rgb = cv2.cvtColor(thumb, cv2.COLOR_BGR2RGB)
     alert = {
         "id": str(uuid.uuid4())[:8],
+        "camera_id": camera_id,
+        "camera_name": CAMERA_BY_ID[camera_id]["name"],
         "type": alert_type,
         "timestamp": time.strftime("%H:%M:%S"),
         "severity": severity,
@@ -211,22 +248,46 @@ def add_alert(alert_type, frame_bgr, severity):
         "status": "new",
     }
     st.session_state.alerts.insert(0, alert)
-    st.session_state.alerts = st.session_state.alerts[:30]
+    st.session_state.alerts = st.session_state.alerts[:200]
+
+
+def camera_status(camera_id):
+    active = [a for a in st.session_state.alerts
+              if a["status"] == "new" and a["camera_id"] == camera_id]
+    if any(a["type"] in ("fall", "fight") for a in active):
+        return "red"
+    if any(a["type"] == "crowd" for a in active):
+        return "yellow"
+    return "green"
 
 
 def overall_status():
     active = [a for a in st.session_state.alerts if a["status"] == "new"]
-    if any(a["type"] == "fall" for a in active):
-        return "red", "ТРЕВОГА: обнаружено падение"
-    if any(a["type"] == "crowd" for a in active):
-        return "yellow", "ВНИМАНИЕ: скопление людей"
-    return "green", "Штатная ситуация"
+    urgent = [a for a in active if a["type"] in ("fall", "fight")]
+    if urgent:
+        a = urgent[0]
+        return "red", f"ТРЕВОГА: {EVENT_META[a['type']]['label'].lower()} — {a['camera_name']}"
+    crowd = [a for a in active if a["type"] == "crowd"]
+    if crowd:
+        a = crowd[0]
+        return "yellow", f"ВНИМАНИЕ: скопление людей — {a['camera_name']}"
+    return "green", "Штатная ситуация — все камеры в норме"
 
 
 # ---------- layout ----------
 left_col, right_col = st.columns([2, 1], gap="large")
 
 with left_col:
+    cam_cols = st.columns(len(CAMERAS))
+    cam_click = None
+    for col, cam in zip(cam_cols, CAMERAS):
+        dot = {"green": "🟢", "yellow": "🟡", "red": "🔴"}[camera_status(cam["id"])]
+        is_active = st.session_state.active_cam == cam["id"]
+        prefix = "▶ " if is_active else ""
+        with col:
+            if col.button(f"{prefix}{dot} {cam['name']}", key=f"camtab_{cam['id']}", width="stretch"):
+                cam_click = cam["id"]
+
     controls = st.columns([1, 1, 3])
     start_btn = controls[0].button("▶️ Старт", width="stretch")
     stop_btn = controls[1].button("⏸ Стоп", width="stretch")
@@ -241,6 +302,9 @@ with right_col:
         '<div class="alerts-heading">📋 Лента алертов</div>', unsafe_allow_html=True
     )
 
+if cam_click is not None:
+    st.session_state.active_cam = cam_click
+
 
 def render_status():
     color, label = overall_status()
@@ -248,16 +312,27 @@ def render_status():
         f'<div class="status-banner status-{color}"><span class="status-dot"></span>{label}</div>',
         unsafe_allow_html=True,
     )
-    dot_color = {"green": "#22c55e", "yellow": "#eab308", "red": "#ef4444"}[color]
+    dot_colors = {"green": "#22c55e", "yellow": "#eab308", "red": "#ef4444"}
+    dots_html = ""
+    legend_html = ""
+    for cam in CAMERAS:
+        st_color = camera_status(cam["id"])
+        c = dot_colors[st_color]
+        x, y = cam["map_pos"]
+        active_cls = "active" if cam["id"] == st.session_state.active_cam else ""
+        dots_html += (
+            f'<div class="map-dot {active_cls}" style="left:{x}%; top:{y}%; '
+            f'background:{c}; color:{c}; box-shadow:0 0 16px 3px {c}99;"></div>'
+        )
+        legend_html += (
+            f'<span><span class="sw" style="background:{c};"></span>{cam["name"]}</span>'
+        )
     map_slot.markdown(
         f"""
         <div class="panel-card">
             <div class="panel-label">Карта объекта</div>
-            <div class="map-wrap">
-                <div class="map-dot" style="background:{dot_color}; color:{dot_color};
-                    box-shadow:0 0 20px 4px {dot_color}99;"></div>
-            </div>
-            <div class="map-caption">📍 Камера №1 — вход на территорию</div>
+            <div class="map-wrap">{dots_html}</div>
+            <div class="map-legend">{legend_html}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -283,19 +358,22 @@ def render_alerts():
         )
         return
 
+    visible_alerts = st.session_state.alerts[:20]
     with alerts_slot.container():
-        for i, alert in enumerate(st.session_state.alerts):
+        for i, alert in enumerate(visible_alerts):
+            meta = EVENT_META[alert["type"]]
             accent = "var(--red)" if alert["severity"] == "high" else "var(--yellow)"
             c1, c2, c3 = st.columns([1, 2.2, 1], vertical_alignment="center")
             with c1:
                 st.image(alert["thumbnail"], width="stretch")
             with c2:
-                type_label = "🚨 Падение" if alert["type"] == "fall" else "👥 Скопление людей"
+                type_label = f"{meta['emoji']} {meta['label']}"
                 badge = ('<span class="badge-new">● НОВЫЙ</span>' if alert["status"] == "new"
                          else '<span class="badge-dispatched">✔ НАРЯД ПЕРЕДАН</span>')
                 st.markdown(
                     f'<div class="alert-type" style="color:{accent}">{type_label}</div>'
-                    f'<div class="alert-meta">{alert["timestamp"]} · severity: {alert["severity"]}</div>'
+                    f'<div class="alert-meta">{alert["camera_name"]} · {alert["timestamp"]} · '
+                    f'severity: {alert["severity"]}</div>'
                     f'{badge}',
                     unsafe_allow_html=True,
                 )
@@ -305,9 +383,15 @@ def render_alerts():
                                  width="stretch"):
                         alert["status"] = "dispatched"
                         st.rerun()
-            if i < len(st.session_state.alerts) - 1:
+            if i < len(visible_alerts) - 1:
                 st.markdown('<hr style="border-color: var(--border); margin: 10px 0;">',
                             unsafe_allow_html=True)
+        if len(st.session_state.alerts) > len(visible_alerts):
+            st.markdown(
+                f'<div class="alert-meta" style="text-align:center; margin-top:8px;">'
+                f'+ ещё {len(st.session_state.alerts) - len(visible_alerts)} в истории</div>',
+                unsafe_allow_html=True,
+            )
 
 
 render_status()
@@ -320,19 +404,21 @@ if stop_btn:
 
 
 def process_video():
-    cap = cv2.VideoCapture(VIDEO_PATH)
+    cam = CAMERA_BY_ID[st.session_state.active_cam]
+    cam_id = cam["id"]
+
+    cap = cv2.VideoCapture(cam["video"])
     if not cap.isOpened():
-        st.error(f"Не удалось открыть видео: {VIDEO_PATH}. "
-                  f"Положи файл в test_videos/demo_fall.mp4")
+        st.error(f"Не удалось открыть видео: {cam['video']}")
         st.session_state.running = False
         return
 
     frame_idx = 0
     model = st.session_state.model
     has_pose = st.session_state.has_pose
-    tracker = st.session_state.tracker
+    tracker = st.session_state.trackers[cam_id]
 
-    while st.session_state.running:
+    while st.session_state.running and st.session_state.active_cam == cam_id:
         ret, frame = cap.read()
         if not ret:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # loop the video
@@ -348,6 +434,7 @@ def process_video():
         display = frame.copy()
         now = time.time()
 
+        fall_active = False
         for track_id, det in assigned:
             x1, y1, x2, y2 = [int(v) for v in det["box"]]
             ar = compute_aspect_ratio(det["box"])
@@ -356,6 +443,7 @@ def process_video():
 
             history = tracker.get_history(track_id)
             is_fall = check_fall(history, tracker.get_seen_standing(track_id))
+            fall_active = fall_active or is_fall
 
             box_color = (0, 0, 255) if is_fall else (0, 200, 0)
             cv2.rectangle(display, (x1, y1), (x2, y2), box_color, 2)
@@ -364,10 +452,10 @@ def process_video():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, box_color, 2)
 
             if is_fall:
-                last_ts = st.session_state.last_fall_ts.get(track_id, 0)
+                last_ts = st.session_state.last_fall_ts[cam_id].get(track_id, 0)
                 if now - last_ts > FALL_COOLDOWN_SEC:
-                    st.session_state.last_fall_ts[track_id] = now
-                    add_alert("fall", frame, "high")
+                    st.session_state.last_fall_ts[cam_id][track_id] = now
+                    add_alert(cam_id, "fall", frame, "high")
                     render_alerts()
                     render_status()
 
@@ -375,23 +463,38 @@ def process_video():
         if is_crowd:
             cv2.putText(display, f"CROWD: {len(detections)} people", (20, 40),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 165, 255), 2)
-            if now - st.session_state.last_crowd_ts > CROWD_COOLDOWN_SEC:
-                st.session_state.last_crowd_ts = now
-                add_alert("crowd", frame, "medium")
+            if now - st.session_state.last_crowd_ts[cam_id] > CROWD_COOLDOWN_SEC:
+                st.session_state.last_crowd_ts[cam_id] = now
+                add_alert(cam_id, "crowd", frame, "medium")
                 render_alerts()
                 render_status()
 
-        status_text = "FALL DETECTED" if any(
-            check_fall(tracker.get_history(tid), tracker.get_seen_standing(tid))
-            for tid, _ in assigned
-        ) else ("CROWD" if is_crowd else "OK")
-        status_color = (0, 0, 255) if status_text == "FALL DETECTED" else (
-            (0, 165, 255) if status_text == "CROWD" else (0, 200, 0))
+        is_fight_frame, fight_pair = check_fight(assigned, tracker)
+        if is_fight_frame:
+            st.session_state.fight_streak[cam_id] += 1
+        else:
+            st.session_state.fight_streak[cam_id] = 0
+        is_fight = st.session_state.fight_streak[cam_id] >= FIGHT_SUSTAIN_FRAMES
+        if is_fight:
+            cv2.putText(display, "FIGHT DETECTED", (20, 70),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            if now - st.session_state.last_fight_ts[cam_id] > FIGHT_COOLDOWN_SEC:
+                st.session_state.last_fight_ts[cam_id] = now
+                add_alert(cam_id, "fight", frame, "high")
+                render_alerts()
+                render_status()
+
+        status_text = ("FALL DETECTED" if fall_active else
+                        "FIGHT DETECTED" if is_fight else
+                        "CROWD" if is_crowd else "OK")
+        status_color = ((0, 0, 255) if status_text in ("FALL DETECTED", "FIGHT DETECTED") else
+                         (0, 165, 255) if status_text == "CROWD" else (0, 200, 0))
         cv2.putText(display, f"Status: {status_text}", (20, display.shape[0] - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
 
         display_rgb = cv2.cvtColor(display, cv2.COLOR_BGR2RGB)
-        video_slot.image(display_rgb, width="stretch")
+        video_slot.image(display_rgb, width="stretch",
+                          caption=f"{cam['name']} — {cam['location']}")
 
     cap.release()
 
@@ -399,12 +502,14 @@ def process_video():
 if st.session_state.running:
     process_video()
 else:
+    active_cam = CAMERA_BY_ID[st.session_state.active_cam]
     video_slot.markdown(
-        """
+        f"""
         <div style="border:1px dashed var(--border); border-radius:14px; padding:80px 20px;
             text-align:center; color:var(--text-dim); background:var(--panel);">
             <div style="font-size:2rem; margin-bottom:10px;">▶️</div>
-            Нажми «Старт», чтобы запустить обработку видео
+            Нажми «Старт», чтобы запустить обработку видео — {active_cam['name']}
+            ({active_cam['location']})
         </div>
         """,
         unsafe_allow_html=True,

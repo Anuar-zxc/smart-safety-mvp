@@ -112,10 +112,12 @@ class SimpleTracker:
             if best_id is None:
                 best_id = self.next_id
                 self.next_id += 1
-                self.tracks[best_id] = {"centroid": c, "missed": 0,
+                self.tracks[best_id] = {"centroid": c, "missed": 0, "speed": 0.0,
                                          "history": deque(maxlen=self.history_len),
                                          "seen_standing": False}
             else:
+                prev_c = self.tracks[best_id]["centroid"]
+                self.tracks[best_id]["speed"] = math.hypot(c[0] - prev_c[0], c[1] - prev_c[1])
                 self.tracks[best_id]["centroid"] = c
                 self.tracks[best_id]["missed"] = 0
 
@@ -152,6 +154,10 @@ class SimpleTracker:
     def get_seen_standing(self, track_id):
         t = self.tracks.get(track_id)
         return t["seen_standing"] if t else False
+
+    def get_speed(self, track_id):
+        t = self.tracks.get(track_id)
+        return t["speed"] if t else 0.0
 
 
 def compute_aspect_ratio(box):
@@ -210,3 +216,41 @@ def check_fall(history, seen_standing, window_sec=0.5, fallen_ar=1.0, angle_thre
 
 def check_crowd(detections, threshold=5):
     return len(detections) >= threshold
+
+
+def compute_iou(box_a, box_b):
+    xa1, ya1, xa2, ya2 = box_a
+    xb1, yb1, xb2, yb2 = box_b
+    ix1, iy1 = max(xa1, xb1), max(ya1, yb1)
+    ix2, iy2 = min(xa2, xb2), min(ya2, yb2)
+    inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, xa2 - xa1) * max(0.0, ya2 - ya1)
+    area_b = max(0.0, xb2 - xb1) * max(0.0, yb2 - yb1)
+    union = area_a + area_b - inter
+    return inter / union if union > 0 else 0.0
+
+
+def check_fight(assigned, tracker, iou_threshold=0.1, speed_threshold=2.5, max_people=6):
+    """Heuristic, not a trained model: flags a pair of people whose boxes overlap
+    (close/grappling range) while both are moving fast frame-to-frame (throwing
+    punches / scuffling rather than just standing close together talking).
+
+    max_people gates this to small groups: in a real dense crowd, occlusion makes
+    the nearest-centroid tracker jump between people, which reads as high "speed"
+    for everyone and would swamp this heuristic with false positives -- tested
+    empirically (median tracker speed was actually higher in crowd footage than in
+    real sparring footage). This is a cheap heuristic, not a verified detector.
+    """
+    if not (2 <= len(assigned) <= max_people):
+        return False, None
+    for i in range(len(assigned)):
+        tid_a, det_a = assigned[i]
+        for j in range(i + 1, len(assigned)):
+            tid_b, det_b = assigned[j]
+            if compute_iou(det_a["box"], det_b["box"]) < iou_threshold:
+                continue
+            if tracker.get_speed(tid_a) > speed_threshold and tracker.get_speed(tid_b) > speed_threshold:
+                return True, (tid_a, tid_b)
+    return False, None
