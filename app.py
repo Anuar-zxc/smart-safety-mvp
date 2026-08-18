@@ -28,125 +28,131 @@ st.set_page_config(page_title="Smart Safety — Ситуационный цен�
 
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
 :root {
-    --bg-0: #0a0d14;
-    --bg-1: #0f1420;
-    --panel: #131926;
-    --panel-2: #171f30;
-    --border: #232c40;
-    --text: #e8ecf5;
-    --text-dim: #8792a8;
-    --accent: #3b82f6;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --red: #ef4444;
+    --bg-0: #08080a;
+    --panel: #121214;
+    --panel-2: #17181b;
+    --border: #232326;
+    --text: #f2f2f4;
+    --text-dim: #8b8b93;
+    --accent: #4f6bff;
+    --accent-dim: rgba(79,107,255,0.12);
+    --green: #34d399;
+    --yellow: #f2b93d;
+    --red: #f0546a;
 }
 
 html, body, [class*="stApp"] {
-    background: radial-gradient(ellipse 120% 80% at 50% -10%, #14213a 0%, var(--bg-0) 55%) !important;
+    background: var(--bg-0) !important;
     color: var(--text);
-    font-family: 'Manrope', -apple-system, sans-serif;
+    font-family: 'Inter', -apple-system, sans-serif;
 }
-.block-container {padding-top: 2rem; padding-bottom: 2rem; max-width: 1400px;}
+.block-container {padding-top: 2.5rem; padding-bottom: 2rem; max-width: 1360px;}
+p, span, div, label { font-family: 'Inter', -apple-system, sans-serif; }
 
 /* header */
-.app-header {
-    display: flex; align-items: center; gap: 14px; margin-bottom: 4px;
+.eyebrow-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border); background: var(--panel);
+    border-radius: 100px; padding: 6px 14px; font-size: 0.78rem; font-weight: 600;
+    color: var(--text-dim); margin-bottom: 22px;
 }
-.app-header .icon-badge {
-    width: 46px; height: 46px; border-radius: 12px;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px; box-shadow: 0 6px 20px rgba(59,130,246,0.35);
-}
+.eyebrow-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .app-header h1 {
-    font-size: 1.7rem; font-weight: 800; margin: 0; letter-spacing: -0.01em;
+    font-size: 2.4rem; font-weight: 800; margin: 0 0 10px 0; letter-spacing: -0.03em; line-height: 1.1;
+    color: var(--text);
 }
+.app-header h1 .accent { color: var(--accent); }
 .app-header .subtitle {
-    color: var(--text-dim); font-size: 0.85rem; font-weight: 500; margin-top: 2px;
+    color: var(--text-dim); font-size: 1rem; font-weight: 400; margin-bottom: 28px; max-width: 640px;
 }
-.section-divider { height: 1px; background: var(--border); margin: 22px 0 18px 0; border: none; }
 
 /* buttons */
 .stButton > button {
-    background: var(--panel-2) !important; color: var(--text) !important;
+    background: var(--panel) !important; color: var(--text) !important;
     border: 1px solid var(--border) !important; border-radius: 10px !important;
-    font-weight: 700 !important; padding: 0.55rem 1rem !important;
-    transition: all 0.15s ease !important;
+    font-weight: 600 !important; padding: 0.55rem 1.1rem !important;
+    transition: all 0.15s ease !important; font-size: 0.88rem !important;
 }
 .stButton > button:hover {
-    border-color: var(--accent) !important; background: #1b2436 !important;
-    transform: translateY(-1px);
+    border-color: var(--accent) !important; background: var(--accent-dim) !important;
 }
-.stButton > button p { font-weight: 700 !important; }
+.stButton > button p { font-weight: 600 !important; }
+div[data-testid="column"]:first-of-type .stButton > button {
+    background: var(--accent) !important; border-color: var(--accent) !important; color: white !important;
+}
+div[data-testid="column"]:first-of-type .stButton > button:hover { filter: brightness(1.1); }
 
-/* status banner */
+/* status banner -- styled like the reference site's risk-summary cards */
 .status-banner {
-    padding: 16px 20px; border-radius: 14px; font-weight: 800; font-size: 1.05rem;
-    text-align: center; color: white; margin-bottom: 16px; letter-spacing: -0.01em;
-    border: 1px solid rgba(255,255,255,0.08);
-    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 16px 18px; border-radius: 14px; font-weight: 700; font-size: 0.98rem;
+    margin-bottom: 16px; letter-spacing: -0.005em;
+    border: 1px solid var(--border); background: var(--panel);
+    display: flex; align-items: center; gap: 12px;
 }
-.status-dot { width: 10px; height: 10px; border-radius: 50%; background: white; flex-shrink: 0; }
-.status-green { background: linear-gradient(135deg, #15803d, #22c55e); box-shadow: 0 8px 24px rgba(34,197,94,0.25); }
-.status-yellow { background: linear-gradient(135deg, #a16207, #eab308); color:#1a1400; box-shadow: 0 8px 24px rgba(234,179,8,0.25); }
-.status-yellow .status-dot { background: #1a1400; }
-.status-red { background: linear-gradient(135deg, #b91c1c, #ef4444); box-shadow: 0 8px 24px rgba(239,68,68,0.35); animation: pulse-red 1.6s ease-in-out infinite; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.status-green { color: var(--green); }
+.status-green .status-dot { background: var(--green); box-shadow: 0 0 12px 2px rgba(52,211,153,0.5); }
+.status-yellow { color: var(--yellow); }
+.status-yellow .status-dot { background: var(--yellow); box-shadow: 0 0 12px 2px rgba(242,185,61,0.5); }
+.status-red { color: var(--red); border-color: rgba(240,84,106,0.4); animation: pulse-red 1.6s ease-in-out infinite; }
+.status-red .status-dot { background: var(--red); box-shadow: 0 0 12px 2px rgba(240,84,106,0.6); }
 @keyframes pulse-red {
-    0%, 100% { box-shadow: 0 8px 24px rgba(239,68,68,0.35); }
-    50% { box-shadow: 0 8px 34px rgba(239,68,68,0.65); }
+    0%, 100% { background: var(--panel); }
+    50% { background: rgba(240,84,106,0.08); }
 }
 
 /* panel card */
 .panel-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-    padding: 14px 16px; margin-bottom: 16px;
+    padding: 16px 18px; margin-bottom: 16px;
 }
 .panel-label {
-    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--text-dim); margin-bottom: 10px;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 12px;
 }
 
 /* map */
 .map-wrap {
-    position: relative; border-radius: 12px; overflow: hidden; height: 150px;
+    position: relative; border-radius: 10px; overflow: hidden; height: 140px;
     background:
-        linear-gradient(rgba(59,130,246,0.06) 1px, transparent 1px) 0 0/24px 24px,
-        linear-gradient(90deg, rgba(59,130,246,0.06) 1px, transparent 1px) 0 0/24px 24px,
-        radial-gradient(circle at 50% 50%, #17213a 0%, #0d1220 100%);
+        linear-gradient(rgba(79,107,255,0.05) 1px, transparent 1px) 0 0/22px 22px,
+        linear-gradient(90deg, rgba(79,107,255,0.05) 1px, transparent 1px) 0 0/22px 22px,
+        #0d0d10;
     border: 1px solid var(--border);
 }
 .map-dot {
-    position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    position: absolute; width: 14px; height: 14px; border-radius: 50%;
     top: 50%; left: 50%; transform: translate(-50%, -50%);
 }
 .map-dot::after {
-    content: ''; position: absolute; inset: -14px; border-radius: 50%;
-    border: 1px solid currentColor; opacity: 0.35;
+    content: ''; position: absolute; inset: -12px; border-radius: 50%;
+    border: 1px solid currentColor; opacity: 0.3;
 }
 .map-caption {
-    text-align: center; font-size: 0.78rem; color: var(--text-dim); margin-top: 10px; font-weight: 600;
+    text-align: center; font-size: 0.78rem; color: var(--text-dim); margin-top: 12px; font-weight: 500;
 }
 
 /* alerts feed */
 .alerts-heading {
-    font-size: 0.95rem; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+    font-size: 0.98rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+    color: var(--text);
 }
-.alert-type { font-weight: 800; font-size: 0.9rem; }
-.alert-meta { font-size: 0.76rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+.alert-type { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+.alert-meta { font-size: 0.75rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 3px; }
 .badge-new {
-    color: var(--red); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.04em;
-    background: rgba(239,68,68,0.12); padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 6px;
+    color: var(--red); font-weight: 700; font-size: 0.68rem; letter-spacing: 0.04em;
+    background: rgba(240,84,106,0.12); padding: 2px 9px; border-radius: 20px; display: inline-block; margin-top: 7px;
 }
 .badge-dispatched {
-    color: #4ade80; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.04em;
-    background: rgba(74,222,128,0.12); padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 6px;
+    color: var(--green); font-weight: 700; font-size: 0.68rem; letter-spacing: 0.04em;
+    background: rgba(52,211,153,0.12); padding: 2px 9px; border-radius: 20px; display: inline-block; margin-top: 7px;
 }
 .empty-feed {
-    text-align: center; padding: 30px 10px; color: var(--text-dim); font-size: 0.85rem;
-    border: 1px dashed var(--border); border-radius: 12px;
+    text-align: center; padding: 34px 10px; color: var(--text-dim); font-size: 0.85rem; line-height: 1.6;
+    border: 1px dashed var(--border); border-radius: 12px; background: var(--panel);
 }
 
 /* video frame */
@@ -154,7 +160,7 @@ div[data-testid="stImage"] img {
     border-radius: 14px; border: 1px solid var(--border);
 }
 
-hr { border-color: var(--border) !important; }
+hr { border-color: var(--border) !important; margin: 12px 0 !important; }
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
@@ -162,11 +168,10 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 st.markdown(
     """
     <div class="app-header">
-        <div class="icon-badge">🛡️</div>
-        <div>
-            <h1>Smart Safety — Ситуационный центр</h1>
-            <div class="subtitle">Видеоаналитика в реальном времени · детекция падений и скоплений людей</div>
-        </div>
+        <div class="eyebrow-badge"><span class="dot"></span>Видеоаналитика для городской безопасности</div>
+        <h1>Smart Safety — <span class="accent">ситуационный центр</span></h1>
+        <div class="subtitle">Детекция падений и скоплений людей в видеопотоке в реальном времени —
+            с автоматическим оповещением и передачей наряда.</div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -212,10 +217,10 @@ def add_alert(alert_type, frame_bgr, severity):
 def overall_status():
     active = [a for a in st.session_state.alerts if a["status"] == "new"]
     if any(a["type"] == "fall" for a in active):
-        return "red", "🔴 ТРЕВОГА: обнаружено падение"
+        return "red", "ТРЕВОГА: обнаружено падение"
     if any(a["type"] == "crowd" for a in active):
-        return "yellow", "🟡 ВНИМАНИЕ: скопление людей"
-    return "green", "🟢 Штатная ситуация"
+        return "yellow", "ВНИМАНИЕ: скопление людей"
+    return "green", "Штатная ситуация"
 
 
 # ---------- layout ----------
@@ -259,7 +264,18 @@ def render_status():
     )
 
 
+_render_call_id = 0
+
+
 def render_alerts():
+    # process_video()'s loop can call this several times within a single script
+    # execution (once per new alert); a stable widget key would collide on the
+    # 2nd+ call since Streamlit checks key uniqueness per run, not per placeholder,
+    # so every call gets its own suffix.
+    global _render_call_id
+    _render_call_id += 1
+    call_id = _render_call_id
+
     if not st.session_state.alerts:
         alerts_slot.markdown(
             '<div class="empty-feed">Алертов пока нет —<br>система следит за периметром</div>',
@@ -285,7 +301,8 @@ def render_alerts():
                 )
             with c3:
                 if alert["status"] == "new":
-                    if st.button("Отправить наряд", key=f"dispatch_{alert['id']}", width="stretch"):
+                    if st.button("Отправить наряд", key=f"dispatch_{alert['id']}_{call_id}_{i}",
+                                 width="stretch"):
                         alert["status"] = "dispatched"
                         st.rerun()
             if i < len(st.session_state.alerts) - 1:
