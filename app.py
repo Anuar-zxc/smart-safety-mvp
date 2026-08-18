@@ -220,6 +220,8 @@ def init_state():
         st.session_state.last_fight_ts = {c["id"]: 0.0 for c in CAMERAS}
     if "fight_streak" not in st.session_state:
         st.session_state.fight_streak = {c["id"]: 0 for c in CAMERAS}
+    if "fight_last_pair" not in st.session_state:
+        st.session_state.fight_last_pair = {c["id"]: None for c in CAMERAS}
     if "model" not in st.session_state:
         with st.spinner("Загружаю YOLO модель (первый запуск может скачать веса)..."):
             model, has_pose = load_model()
@@ -471,9 +473,20 @@ def process_video():
 
         is_fight_frame, fight_pair = check_fight(assigned, tracker)
         if is_fight_frame:
-            st.session_state.fight_streak[cam_id] += 1
+            # Require the SAME pair of people to stay overlapping+fast across
+            # consecutive frames. A real fight keeps the same two people; a dense
+            # crowd's occlusion-confused tracker pairs shuffle randomly frame to
+            # frame, so this alone kills the crowd false positives that raw
+            # "is_fight_frame" streaks let through (tested empirically).
+            pair_key = frozenset(fight_pair)
+            if pair_key == st.session_state.fight_last_pair[cam_id]:
+                st.session_state.fight_streak[cam_id] += 1
+            else:
+                st.session_state.fight_streak[cam_id] = 1
+            st.session_state.fight_last_pair[cam_id] = pair_key
         else:
             st.session_state.fight_streak[cam_id] = 0
+            st.session_state.fight_last_pair[cam_id] = None
         is_fight = st.session_state.fight_streak[cam_id] >= FIGHT_SUSTAIN_FRAMES
         if is_fight:
             cv2.putText(display, "FIGHT DETECTED", (20, 70),
