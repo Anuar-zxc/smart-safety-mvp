@@ -18,47 +18,159 @@ from detection import (
 )
 
 VIDEO_PATH = str(Path(__file__).parent / "test_videos" / "demo_fall.mp4")
-FRAME_SKIP = 2          # process every Nth frame (speed on weak hardware)
+FRAME_SKIP = 1          # process every Nth frame (speed on weak hardware)
 CROWD_THRESHOLD = 5
 FALL_COOLDOWN_SEC = 8
 CROWD_COOLDOWN_SEC = 8
 DETECT_CONF = 0.4
 
-st.set_page_config(page_title="Smart Safety — Ситуационный центр", layout="wide")
+st.set_page_config(page_title="Smart Safety — Ситуационный центр", layout="wide", page_icon="🛡️")
 
 CUSTOM_CSS = """
 <style>
-.block-container {padding-top: 1.5rem; padding-bottom: 1rem;}
-h1 {font-size: 1.6rem; margin-bottom: 0.2rem;}
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@500&display=swap');
+
+:root {
+    --bg-0: #0a0d14;
+    --bg-1: #0f1420;
+    --panel: #131926;
+    --panel-2: #171f30;
+    --border: #232c40;
+    --text: #e8ecf5;
+    --text-dim: #8792a8;
+    --accent: #3b82f6;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+}
+
+html, body, [class*="stApp"] {
+    background: radial-gradient(ellipse 120% 80% at 50% -10%, #14213a 0%, var(--bg-0) 55%) !important;
+    color: var(--text);
+    font-family: 'Manrope', -apple-system, sans-serif;
+}
+.block-container {padding-top: 2rem; padding-bottom: 2rem; max-width: 1400px;}
+
+/* header */
+.app-header {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 4px;
+}
+.app-header .icon-badge {
+    width: 46px; height: 46px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; box-shadow: 0 6px 20px rgba(59,130,246,0.35);
+}
+.app-header h1 {
+    font-size: 1.7rem; font-weight: 800; margin: 0; letter-spacing: -0.01em;
+}
+.app-header .subtitle {
+    color: var(--text-dim); font-size: 0.85rem; font-weight: 500; margin-top: 2px;
+}
+.section-divider { height: 1px; background: var(--border); margin: 22px 0 18px 0; border: none; }
+
+/* buttons */
+.stButton > button {
+    background: var(--panel-2) !important; color: var(--text) !important;
+    border: 1px solid var(--border) !important; border-radius: 10px !important;
+    font-weight: 700 !important; padding: 0.55rem 1rem !important;
+    transition: all 0.15s ease !important;
+}
+.stButton > button:hover {
+    border-color: var(--accent) !important; background: #1b2436 !important;
+    transform: translateY(-1px);
+}
+.stButton > button p { font-weight: 700 !important; }
+
+/* status banner */
 .status-banner {
-    padding: 14px 18px; border-radius: 10px; font-weight: 700; font-size: 1.1rem;
-    text-align: center; color: white; margin-bottom: 14px; transition: background 0.3s ease;
+    padding: 16px 20px; border-radius: 14px; font-weight: 800; font-size: 1.05rem;
+    text-align: center; color: white; margin-bottom: 16px; letter-spacing: -0.01em;
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
 }
-.status-green {background: linear-gradient(90deg,#1f9d55,#27ae60);}
-.status-yellow {background: linear-gradient(90deg,#d4a017,#f1c40f); color:#20201a;}
-.status-red {background: linear-gradient(90deg,#c0392b,#e74c3c);}
-.alert-card {
-    border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
-    border-left: 6px solid #888; background: #1e1e1e10;
-    display: flex; gap: 10px; align-items: center;
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: white; flex-shrink: 0; }
+.status-green { background: linear-gradient(135deg, #15803d, #22c55e); box-shadow: 0 8px 24px rgba(34,197,94,0.25); }
+.status-yellow { background: linear-gradient(135deg, #a16207, #eab308); color:#1a1400; box-shadow: 0 8px 24px rgba(234,179,8,0.25); }
+.status-yellow .status-dot { background: #1a1400; }
+.status-red { background: linear-gradient(135deg, #b91c1c, #ef4444); box-shadow: 0 8px 24px rgba(239,68,68,0.35); animation: pulse-red 1.6s ease-in-out infinite; }
+@keyframes pulse-red {
+    0%, 100% { box-shadow: 0 8px 24px rgba(239,68,68,0.35); }
+    50% { box-shadow: 0 8px 34px rgba(239,68,68,0.65); }
 }
-.alert-card.high {border-left-color: #e74c3c;}
-.alert-card.medium {border-left-color: #f1c40f;}
-.alert-meta {font-size: 0.82rem; opacity: 0.75;}
-.alert-type {font-weight: 700; font-size: 0.95rem;}
-.badge-new {color:#e74c3c; font-weight:700; font-size:0.78rem;}
-.badge-dispatched {color:#7f8c8d; font-weight:600; font-size:0.78rem;}
-.map-wrap {position: relative; border-radius: 10px; overflow: hidden; border: 1px solid #4443;}
+
+/* panel card */
+.panel-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 16px;
+}
+.panel-label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 10px;
+}
+
+/* map */
+.map-wrap {
+    position: relative; border-radius: 12px; overflow: hidden; height: 150px;
+    background:
+        linear-gradient(rgba(59,130,246,0.06) 1px, transparent 1px) 0 0/24px 24px,
+        linear-gradient(90deg, rgba(59,130,246,0.06) 1px, transparent 1px) 0 0/24px 24px,
+        radial-gradient(circle at 50% 50%, #17213a 0%, #0d1220 100%);
+    border: 1px solid var(--border);
+}
 .map-dot {
-    position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    position: absolute; width: 16px; height: 16px; border-radius: 50%;
     top: 50%; left: 50%; transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 6px rgba(0,0,0,0.05);
 }
+.map-dot::after {
+    content: ''; position: absolute; inset: -14px; border-radius: 50%;
+    border: 1px solid currentColor; opacity: 0.35;
+}
+.map-caption {
+    text-align: center; font-size: 0.78rem; color: var(--text-dim); margin-top: 10px; font-weight: 600;
+}
+
+/* alerts feed */
+.alerts-heading {
+    font-size: 0.95rem; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.alert-type { font-weight: 800; font-size: 0.9rem; }
+.alert-meta { font-size: 0.76rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+.badge-new {
+    color: var(--red); font-weight: 700; font-size: 0.72rem; letter-spacing: 0.04em;
+    background: rgba(239,68,68,0.12); padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 6px;
+}
+.badge-dispatched {
+    color: #4ade80; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.04em;
+    background: rgba(74,222,128,0.12); padding: 2px 8px; border-radius: 20px; display: inline-block; margin-top: 6px;
+}
+.empty-feed {
+    text-align: center; padding: 30px 10px; color: var(--text-dim); font-size: 0.85rem;
+    border: 1px dashed var(--border); border-radius: 12px;
+}
+
+/* video frame */
+div[data-testid="stImage"] img {
+    border-radius: 14px; border: 1px solid var(--border);
+}
+
+hr { border-color: var(--border) !important; }
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-st.title("🛡️ Smart Safety — Ситуационный центр")
+st.markdown(
+    """
+    <div class="app-header">
+        <div class="icon-badge">🛡️</div>
+        <div>
+            <h1>Smart Safety — Ситуационный центр</h1>
+            <div class="subtitle">Видеоаналитика в реальном времени · детекция падений и скоплений людей</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 def init_state():
@@ -107,10 +219,10 @@ def overall_status():
 
 
 # ---------- layout ----------
-left_col, right_col = st.columns([2, 1])
+left_col, right_col = st.columns([2, 1], gap="large")
 
 with left_col:
-    controls = st.columns([1, 1, 2])
+    controls = st.columns([1, 1, 3])
     start_btn = controls[0].button("▶️ Старт", width="stretch")
     stop_btn = controls[1].button("⏸ Стоп", width="stretch")
     video_slot = st.empty()
@@ -118,26 +230,29 @@ with left_col:
 with right_col:
     status_slot = st.empty()
     map_slot = st.empty()
-    st.subheader("Лента алертов")
+    alerts_heading_slot = st.empty()
     alerts_slot = st.empty()
+    alerts_heading_slot.markdown(
+        '<div class="alerts-heading">📋 Лента алертов</div>', unsafe_allow_html=True
+    )
 
 
 def render_status():
     color, label = overall_status()
     status_slot.markdown(
-        f'<div class="status-banner status-{color}">{label}</div>',
+        f'<div class="status-banner status-{color}"><span class="status-dot"></span>{label}</div>',
         unsafe_allow_html=True,
     )
-    dot_color = {"green": "#27ae60", "yellow": "#f1c40f", "red": "#e74c3c"}[color]
+    dot_color = {"green": "#22c55e", "yellow": "#eab308", "red": "#ef4444"}[color]
     map_slot.markdown(
         f"""
-        <div class="map-wrap" style="height:140px; background:
-            radial-gradient(circle at 50% 50%, #2c3e50 0%, #1a1f27 100%);">
-            <div class="map-dot" style="background:{dot_color};
-                box-shadow:0 0 24px 6px {dot_color}88;"></div>
-        </div>
-        <div style="text-align:center; font-size:0.8rem; opacity:0.7; margin-top:4px;">
-            Камера №1 — вход на территорию
+        <div class="panel-card">
+            <div class="panel-label">Карта объекта</div>
+            <div class="map-wrap">
+                <div class="map-dot" style="background:{dot_color}; color:{dot_color};
+                    box-shadow:0 0 20px 4px {dot_color}99;"></div>
+            </div>
+            <div class="map-caption">📍 Камера №1 — вход на территорию</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -146,33 +261,36 @@ def render_status():
 
 def render_alerts():
     if not st.session_state.alerts:
-        alerts_slot.info("Алертов пока нет.")
+        alerts_slot.markdown(
+            '<div class="empty-feed">Алертов пока нет —<br>система следит за периметром</div>',
+            unsafe_allow_html=True,
+        )
         return
 
     with alerts_slot.container():
-        for alert in st.session_state.alerts:
-            c1, c2, c3 = st.columns([1, 2.2, 1])
+        for i, alert in enumerate(st.session_state.alerts):
+            accent = "var(--red)" if alert["severity"] == "high" else "var(--yellow)"
+            c1, c2, c3 = st.columns([1, 2.2, 1], vertical_alignment="center")
             with c1:
                 st.image(alert["thumbnail"], width="stretch")
             with c2:
                 type_label = "🚨 Падение" if alert["type"] == "fall" else "👥 Скопление людей"
+                badge = ('<span class="badge-new">● НОВЫЙ</span>' if alert["status"] == "new"
+                         else '<span class="badge-dispatched">✔ НАРЯД ПЕРЕДАН</span>')
                 st.markdown(
-                    f'<div class="alert-type">{type_label}</div>'
-                    f'<div class="alert-meta">Время: {alert["timestamp"]} '
-                    f'· severity: {alert["severity"]}</div>',
+                    f'<div class="alert-type" style="color:{accent}">{type_label}</div>'
+                    f'<div class="alert-meta">{alert["timestamp"]} · severity: {alert["severity"]}</div>'
+                    f'{badge}',
                     unsafe_allow_html=True,
                 )
-                if alert["status"] == "new":
-                    st.markdown('<span class="badge-new">● НОВЫЙ</span>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<span class="badge-dispatched">✔ Наряд передан</span>',
-                                unsafe_allow_html=True)
             with c3:
                 if alert["status"] == "new":
-                    if st.button("Отправить наряд", key=f"dispatch_{alert['id']}"):
+                    if st.button("Отправить наряд", key=f"dispatch_{alert['id']}", width="stretch"):
                         alert["status"] = "dispatched"
                         st.rerun()
-            st.divider()
+            if i < len(st.session_state.alerts) - 1:
+                st.markdown('<hr style="border-color: var(--border); margin: 10px 0;">',
+                            unsafe_allow_html=True)
 
 
 render_status()
@@ -220,7 +338,7 @@ def process_video():
             tracker.record_metrics(track_id, ar, angle)
 
             history = tracker.get_history(track_id)
-            is_fall = check_fall(history)
+            is_fall = check_fall(history, tracker.get_seen_standing(track_id))
 
             box_color = (0, 0, 255) if is_fall else (0, 200, 0)
             cv2.rectangle(display, (x1, y1), (x2, y2), box_color, 2)
@@ -247,7 +365,8 @@ def process_video():
                 render_status()
 
         status_text = "FALL DETECTED" if any(
-            check_fall(tracker.get_history(tid)) for tid, _ in assigned
+            check_fall(tracker.get_history(tid), tracker.get_seen_standing(tid))
+            for tid, _ in assigned
         ) else ("CROWD" if is_crowd else "OK")
         status_color = (0, 0, 255) if status_text == "FALL DETECTED" else (
             (0, 165, 255) if status_text == "CROWD" else (0, 200, 0))
@@ -263,4 +382,13 @@ def process_video():
 if st.session_state.running:
     process_video()
 else:
-    video_slot.info("Нажми ▶️ Старт, чтобы запустить обработку видео.")
+    video_slot.markdown(
+        """
+        <div style="border:1px dashed var(--border); border-radius:14px; padding:80px 20px;
+            text-align:center; color:var(--text-dim); background:var(--panel);">
+            <div style="font-size:2rem; margin-bottom:10px;">▶️</div>
+            Нажми «Старт», чтобы запустить обработку видео
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )

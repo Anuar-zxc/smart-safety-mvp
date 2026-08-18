@@ -87,7 +87,7 @@ def _centroid(box):
 class SimpleTracker:
     """Nearest-centroid tracker. Good enough for a handful of people in frame."""
 
-    def __init__(self, max_distance=120, max_missed=10, history_len=30):
+    def __init__(self, max_distance=300, max_missed=15, history_len=30):
         self.next_id = 1
         self.tracks = {}  # id -> {"centroid": (x,y), "missed": int, "history": deque}
         self.max_distance = max_distance
@@ -113,7 +113,8 @@ class SimpleTracker:
                 best_id = self.next_id
                 self.next_id += 1
                 self.tracks[best_id] = {"centroid": c, "missed": 0,
-                                         "history": deque(maxlen=self.history_len)}
+                                         "history": deque(maxlen=self.history_len),
+                                         "seen_standing": False}
             else:
                 self.tracks[best_id]["centroid"] = c
                 self.tracks[best_id]["missed"] = 0
@@ -130,18 +131,27 @@ class SimpleTracker:
 
         return assigned
 
-    def record_metrics(self, track_id, aspect_ratio, torso_angle):
+    def record_metrics(self, track_id, aspect_ratio, torso_angle, standing_ar=1.5):
         if track_id not in self.tracks:
             return
-        self.tracks[track_id]["history"].append({
+        track = self.tracks[track_id]
+        track["history"].append({
             "t": time.time(),
             "ar": aspect_ratio,
             "angle": torso_angle,
         })
+        # remembered permanently for this track's lifetime -- a short history buffer would
+        # otherwise "forget" the standing evidence once someone has been down for a while
+        if aspect_ratio >= standing_ar:
+            track["seen_standing"] = True
 
     def get_history(self, track_id):
         t = self.tracks.get(track_id)
         return t["history"] if t else deque()
+
+    def get_seen_standing(self, track_id):
+        t = self.tracks.get(track_id)
+        return t["seen_standing"] if t else False
 
 
 def compute_aspect_ratio(box):
@@ -175,20 +185,17 @@ def compute_torso_angle(keypoints):
     return angle_from_vertical
 
 
-def check_fall(history, window_sec=1.0, standing_ar=1.5, fallen_ar=1.0, angle_threshold=60):
-    """Look at recent history for this track: was standing (high AR), now fallen (low AR)
-    and/or torso angle near-horizontal, sustained for at least ~window_sec.
+def check_fall(history, seen_standing, window_sec=0.5, fallen_ar=1.0, angle_threshold=60):
+    """A track counts as fallen once it has been seen standing at some point in its
+    lifetime (seen_standing, tracked persistently by SimpleTracker -- a short rolling
+    history window would otherwise "forget" the standing evidence once someone has been
+    down for a while) and its aspect ratio / torso angle has stayed in "fallen" territory
+    for at least window_sec, so brief crouches/bends don't trigger it.
     """
-    if len(history) < 3:
+    if not seen_standing or len(history) < 3:
         return False
 
     now = history[-1]["t"]
-    recent = [h for h in history if now - h["t"] <= window_sec * 2]
-    if len(recent) < 3:
-        return False
-
-    was_standing = any(h["ar"] >= standing_ar for h in recent[:max(1, len(recent) // 2)])
-
     sustained_window = [h for h in history if now - h["t"] <= window_sec]
     if not sustained_window:
         return False
@@ -198,7 +205,7 @@ def check_fall(history, window_sec=1.0, standing_ar=1.5, fallen_ar=1.0, angle_th
         h["angle"] is not None and h["angle"] > angle_threshold for h in sustained_window
     )
 
-    return was_standing and (fallen_by_ar or fallen_by_angle)
+    return fallen_by_ar or fallen_by_angle
 
 
 def check_crowd(detections, threshold=5):
