@@ -28,6 +28,7 @@ CAMERAS = [
 CAMERA_BY_ID = {c["id"]: c for c in CAMERAS}
 
 FRAME_SKIP = 1
+PLAYBACK_SPEED = 1.6  # x realtime -- events happen sooner, demo doesn't sit idle
 CROWD_THRESHOLD = 5
 FALL_COOLDOWN_SEC = 8
 CROWD_COOLDOWN_SEC = 8
@@ -54,8 +55,9 @@ CUSTOM_CSS = """
     --border: #232326;
     --text: #f2f2f4;
     --text-dim: #8b8b93;
-    --accent: #4f6bff;
-    --accent-dim: rgba(79,107,255,0.12);
+    --accent: #d2232a;
+    --accent-dim: rgba(210,35,42,0.14);
+    --panel-3: #1a1a1d;
     --green: #34d399;
     --yellow: #f2b93d;
     --red: #f0546a;
@@ -213,17 +215,163 @@ div[data-testid="stImage"] img {
 }
 
 hr { border-color: var(--border) !important; margin: 12px 0 !important; }
+
+/* top nav */
+.topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0 22px 0; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.topnav-brand {
+    display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.05rem;
+    letter-spacing: -0.01em; color: var(--text);
+}
+.topnav-brand .badge-icon {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.topnav-links { display: flex; gap: 30px; }
+.topnav-links a {
+    color: var(--text-dim); text-decoration: none; font-weight: 600; font-size: 0.86rem;
+    transition: color 0.15s ease;
+}
+.topnav-links a:hover { color: var(--text); }
+
+/* hero */
+.hero { padding: 56px 0 40px 0; max-width: 760px; }
+.hero h1 {
+    font-size: 3.1rem; font-weight: 800; letter-spacing: -0.035em; line-height: 1.08;
+    margin: 0 0 20px 0; color: var(--text);
+}
+.hero h1 .accent { color: var(--accent); }
+.hero-sub {
+    font-size: 1.08rem; color: var(--text-dim); line-height: 1.6; margin-bottom: 28px; max-width: 620px;
+}
+.hero-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: white !important; text-decoration: none;
+    font-weight: 700; font-size: 0.92rem; padding: 13px 26px; border-radius: 100px;
+    transition: filter 0.15s ease;
+}
+.hero-cta:hover { filter: brightness(1.12); }
+
+/* about bullets */
+.about-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 8px 0 44px 0;
+}
+.about-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+}
+.about-card .num {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 700;
+    color: var(--accent); margin-bottom: 10px; letter-spacing: 0.05em;
+}
+.about-card h4 { font-size: 1rem; font-weight: 700; margin: 0 0 8px 0; color: var(--text); }
+.about-card p { font-size: 0.85rem; color: var(--text-dim); line-height: 1.55; margin: 0; }
+
+/* section heading (used before dashboard / tech / faq) */
+.section-heading {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: 56px 0 24px 0; padding-top: 32px; border-top: 1px solid var(--border);
+}
+.section-heading h2 {
+    font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; color: var(--text);
+}
+.section-heading .section-kicker {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 8px; display: block;
+}
+.section-sub { color: var(--text-dim); font-size: 0.95rem; margin-top: 10px; max-width: 620px; }
+
+/* tech cards */
+.tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 8px; }
+.tech-card {
+    background: linear-gradient(160deg, var(--panel-3), var(--panel));
+    border: 1px solid var(--border); border-radius: 18px; padding: 26px;
+    transition: border-color 0.2s ease;
+}
+.tech-card:hover { border-color: var(--accent); }
+.tech-card .tech-icon {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--accent-dim);
+    display: flex; align-items: center; justify-content: center; font-size: 21px; margin-bottom: 16px;
+}
+.tech-card h3 { font-size: 1.08rem; font-weight: 700; margin: 0 0 10px 0; color: var(--text); }
+.tech-card p { font-size: 0.87rem; color: var(--text-dim); line-height: 1.6; margin: 0 0 12px 0; }
+.tech-card .tech-tag {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+    color: var(--accent); background: var(--accent-dim); padding: 3px 9px; border-radius: 6px;
+}
+
+/* FAQ */
+div[data-testid="stExpander"] {
+    background: var(--panel) !important; border: 1px solid var(--border) !important;
+    border-radius: 12px !important; margin-bottom: 10px;
+}
+div[data-testid="stExpander"] summary {
+    font-weight: 600 !important; font-size: 0.92rem !important; color: var(--text) !important;
+}
+div[data-testid="stExpander"] p { color: var(--text-dim) !important; font-size: 0.88rem !important; line-height: 1.6 !important; }
+
+/* footer */
+.site-footer {
+    margin-top: 60px; padding: 28px 0 10px 0; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+}
+.site-footer .foot-brand { font-weight: 700; color: var(--text); font-size: 0.92rem; }
+.site-footer .foot-meta {
+    color: var(--text-dim); font-size: 0.78rem; font-family: 'JetBrains Mono', monospace;
+}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 st.markdown(
     """
-    <div class="app-header">
+    <div class="topnav">
+        <div class="topnav-brand"><span class="badge-icon">🛡️</span> SMART SAFETY</div>
+        <div class="topnav-links">
+            <a href="#dashboard-anchor">Демо</a>
+            <a href="#tech-anchor">Технологии</a>
+            <a href="#faq-anchor">FAQ</a>
+        </div>
+    </div>
+
+    <div class="hero">
         <div class="eyebrow-badge"><span class="dot"></span>Видеоаналитика для городской безопасности</div>
-        <h1>Smart Safety — <span class="accent">ситуационный центр</span></h1>
-        <div class="subtitle">Детекция падений, драк и скоплений людей по нескольким камерам в реальном
-            времени — с автоматическим оповещением и передачей наряда.</div>
+        <h1>Мы видим то,<br><span class="accent">что действительно важно.</span></h1>
+        <div class="hero-sub">Smart Safety — прототип ситуационного центра для городских камер видеонаблюдения.
+            Система разбирает видеопоток покадрово с помощью YOLO11-pose, отслеживает людей и автоматически
+            распознаёт падения, драки и опасные скопления людей — без участия оператора, с оповещением
+            и передачей наряда в один клик.</div>
+        <a class="hero-cta" href="#dashboard-anchor">Смотреть демо ↓</a>
+    </div>
+
+    <div class="about-row">
+        <div class="about-card">
+            <div class="num">01</div>
+            <h4>Зачем</h4>
+            <p>Операторы физически не могут одинаково внимательно следить за десятками экранов часами —
+                усталость и рутина снижают реакцию на реальные ЧП.</p>
+        </div>
+        <div class="about-card">
+            <div class="num">02</div>
+            <h4>Как</h4>
+            <p>YOLO11-pose детектирует людей и их позу на каждом кадре, эвристики отслеживают резкое изменение
+                позы, скорость и перекрытие боксов между людьми.</p>
+        </div>
+        <div class="about-card">
+            <div class="num">03</div>
+            <h4>Что дальше</h4>
+            <p>При срабатывании — тревога на карте, запись в ленту событий и кнопка «Отправить наряд»
+                для мгновенной передачи инцидента дежурной службе.</p>
+        </div>
+    </div>
+
+    <div id="dashboard-anchor"></div>
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Живой демо-стенд</span>
+            <h2>Ситуационный центр</h2>
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -466,13 +614,12 @@ def process_video():
     has_pose = st.session_state.has_pose
     tracker = st.session_state.trackers[cam_id]
 
-    # Pace to the source video's own fps instead of spinning the CPU flat-out.
-    # An unthrottled loop here is what got the whole app CPU-throttled on
-    # Streamlit Cloud's free tier during testing -- capping the processing rate
-    # keeps sustained CPU% low without changing how smooth playback looks, since
-    # we're not exceeding the video's native frame rate anyway.
+    # Pace the loop instead of spinning the CPU flat-out (an unthrottled loop is
+    # what got the whole app CPU-throttled on Streamlit Cloud's free tier during
+    # testing) -- but play back at PLAYBACK_SPEED times the source fps so footage
+    # doesn't sit at real-world 1x speed waiting for an event to happen.
     source_fps = cap.get(cv2.CAP_PROP_FPS) or 15
-    frame_interval = 1.0 / source_fps
+    frame_interval = 1.0 / (source_fps * PLAYBACK_SPEED)
     last_frame_time = time.time()
 
     while st.session_state.running and st.session_state.active_cam == cam_id:
@@ -590,3 +737,100 @@ else:
         """,
         unsafe_allow_html=True,
     )
+
+
+# ---------- static sections below the live dashboard ----------
+st.markdown(
+    """
+    <div id="tech-anchor"></div>
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Под капотом</span>
+            <h2>Ключевые технологии</h2>
+            <div class="section-sub">Три независимые эвристики поверх одной модели детекции людей —
+                каждая настроена и проверена на реальных видео, а не на синтетике.</div>
+        </div>
+    </div>
+    <div class="tech-grid">
+        <div class="tech-card">
+            <div class="tech-icon">🚨</div>
+            <h3>Детекция падений</h3>
+            <p>Отслеживаем соотношение сторон бокса человека и угол торса по ключевым точкам YOLO11-pose.
+                Падение засчитывается, только если человек до этого стоял и его поза устойчиво (не менее
+                0.5 сек) осталась «лежачей» — так наклоны и приседания не дают ложных тревог.</p>
+            <span class="tech-tag">YOLO11-pose · aspect ratio · torso angle</span>
+        </div>
+        <div class="tech-card">
+            <div class="tech-icon">🥊</div>
+            <h3>Детекция драк</h3>
+            <p>Ищем пары людей с перекрывающимися боксами, которые одновременно быстро двигаются в кадре.
+                Тревога срабатывает, только если это одна и та же пара несколько кадров подряд — так плотная
+                толпа с постоянно меняющимися соседями не путается с реальной дракой.</p>
+            <span class="tech-tag">IoU overlap · frame-to-frame speed</span>
+        </div>
+        <div class="tech-card">
+            <div class="tech-icon">👥</div>
+            <h3>Скопление людей</h3>
+            <p>Считаем количество людей в кадре на каждый обработанный кадр. При превышении порога
+                (по умолчанию 5 человек) формируется алерт «жёлтого» уровня — с меньшим приоритетом,
+                чем падение или драка, но всё ещё требующий внимания оператора.</p>
+            <span class="tech-tag">Person count threshold</span>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div id="faq-anchor"></div>
+    <div class="section-heading">
+        <div>
+            <span class="section-kicker">Вопросы и ответы</span>
+            <h2>FAQ</h2>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+FAQ_ITEMS = [
+    ("Это настоящее видео или сгенерированное?",
+     "Все три ролика — реальные видеозаписи: падения взяты из открытого академического датасета "
+     "UR Fall Detection (создан именно для тестирования алгоритмов детекции падений), сцены с дракой "
+     "и толпой — из открытых стоковых видео. Никакого синтетического или AI-сгенерированного контента."),
+    ("Можно ли подключить настоящую камеру вместо видеофайла?",
+     "Да, архитектурно это замена одной строки — вместо cv2.VideoCapture(путь_к_файлу) подставляется "
+     "cv2.VideoCapture(rtsp_поток_камеры) или индекс веб-камеры. Вся остальная логика детекции и алертов "
+     "работает без изменений."),
+    ("Насколько точны эвристики драки и падения?",
+     "Это эвристики поверх детекции позы, а не отдельно обученные модели — они откалиброваны и проверены "
+     "на конкретных тестовых видео, но не гарантируют точность production-уровня. Для реального внедрения "
+     "потребуется дообучение на размеченных данных конкретных объектов и ракурсов камер."),
+    ("Что происходит при нажатии «Отправить наряд»?",
+     "В этом прототипе — это заглушка: статус алерта в интерфейсе меняется на «Наряд передан». "
+     "Реальная интеграция с диспетчерской службой (API, SMS, пуш-уведомление) не входит в объём MVP, "
+     "но именно в эту точку она бы подключалась."),
+    ("Почему видео проигрывается в ускоренном темпе?",
+     "Чтобы не ждать реального времени до следующего события на демонстрации — воспроизведение идёт "
+     "в 1.6 раза быстрее реального, при этом обработка кадров всё равно ограничена по CPU, "
+     "чтобы не создавать чрезмерную нагрузку на сервер."),
+    ("Почему в системе всего 3 камеры?",
+     "Это прототип для демонстрации подхода, не production-система. Добавить N-ю камеру — значит добавить "
+     "ещё один элемент в список CAMERAS с своим видео и локацией; остальная логика (трекер, алерты, карта) "
+     "уже рассчитана на произвольное число камер."),
+]
+
+for question, answer in FAQ_ITEMS:
+    with st.expander(question):
+        st.write(answer)
+
+st.markdown(
+    """
+    <div class="site-footer">
+        <div class="foot-brand">🛡️ Smart Safety</div>
+        <div class="foot-meta">YOLO11-pose · OpenCV · Streamlit — прототип для хакатона по цифровизации города</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
