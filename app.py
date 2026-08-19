@@ -420,6 +420,15 @@ def process_video():
     has_pose = st.session_state.has_pose
     tracker = st.session_state.trackers[cam_id]
 
+    # Pace to the source video's own fps instead of spinning the CPU flat-out.
+    # An unthrottled loop here is what got the whole app CPU-throttled on
+    # Streamlit Cloud's free tier during testing -- capping the processing rate
+    # keeps sustained CPU% low without changing how smooth playback looks, since
+    # we're not exceeding the video's native frame rate anyway.
+    source_fps = cap.get(cv2.CAP_PROP_FPS) or 15
+    frame_interval = 1.0 / source_fps
+    last_frame_time = time.time()
+
     while st.session_state.running and st.session_state.active_cam == cam_id:
         ret, frame = cap.read()
         if not ret:
@@ -429,6 +438,11 @@ def process_video():
         frame_idx += 1
         if frame_idx % FRAME_SKIP != 0:
             continue
+
+        elapsed = time.time() - last_frame_time
+        if elapsed < frame_interval:
+            time.sleep(frame_interval - elapsed)
+        last_frame_time = time.time()
 
         detections = detect_people(frame, model, has_pose, conf=DETECT_CONF)
         assigned = tracker.update(detections)
