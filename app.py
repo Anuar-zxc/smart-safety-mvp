@@ -127,6 +127,29 @@ div[data-testid="column"]:first-of-type .stButton > button:hover { filter: brigh
     50% { background: rgba(240,84,106,0.08); }
 }
 
+/* KPI stat row */
+.stat-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;
+}
+.stat-tile {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px; position: relative; overflow: hidden;
+}
+.stat-tile::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--tile-accent, var(--accent));
+}
+.stat-value {
+    font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;
+    color: var(--text); font-family: 'JetBrains Mono', monospace;
+}
+.stat-label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-dim); margin-top: 6px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+}
+.stat-tile.alert .stat-value { color: var(--red); }
+.stat-tile.ok .stat-value { color: var(--green); }
+
 /* panel card */
 .panel-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
@@ -276,7 +299,30 @@ def overall_status():
     return "green", "Штатная ситуация — все камеры в норме"
 
 
+def render_stats():
+    active_alerts = [a for a in st.session_state.alerts if a["status"] == "new"]
+    total_alerts = len(st.session_state.alerts)
+    dispatched = total_alerts - len(active_alerts)
+    cams_alarmed = len({a["camera_id"] for a in active_alerts})
+
+    tiles = [
+        (str(len(CAMERAS)), "Камер онлайн", ""),
+        (str(len(active_alerts)), "Активных тревог", "alert" if active_alerts else "ok"),
+        (str(cams_alarmed), "Камер в тревоге", "alert" if cams_alarmed else "ok"),
+        (str(total_alerts), "Событий за сессию", ""),
+    ]
+    tiles_html = "".join(
+        f'<div class="stat-tile {cls}"><div class="stat-value">{val}</div>'
+        f'<div class="stat-label">{label}</div></div>'
+        for val, label, cls in tiles
+    )
+    stats_slot.markdown(f'<div class="stat-row">{tiles_html}</div>', unsafe_allow_html=True)
+
+
 # ---------- layout ----------
+stats_slot = st.empty()
+render_stats()
+
 left_col, right_col = st.columns([2, 1], gap="large")
 
 with left_col:
@@ -474,6 +520,7 @@ def process_video():
                     add_alert(cam_id, "fall", frame, "high")
                     render_alerts()
                     render_status()
+                    render_stats()
 
         is_crowd = check_crowd(detections, threshold=CROWD_THRESHOLD)
         if is_crowd:
@@ -484,6 +531,7 @@ def process_video():
                 add_alert(cam_id, "crowd", frame, "medium")
                 render_alerts()
                 render_status()
+                render_stats()
 
         is_fight_frame, fight_pair = check_fight(assigned, tracker)
         if is_fight_frame:
@@ -510,6 +558,7 @@ def process_video():
                 add_alert(cam_id, "fight", frame, "high")
                 render_alerts()
                 render_status()
+                render_stats()
 
         status_text = ("FALL DETECTED" if fall_active else
                         "FIGHT DETECTED" if is_fight else
