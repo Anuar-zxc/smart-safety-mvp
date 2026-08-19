@@ -27,8 +27,8 @@ CAMERAS = [
 ]
 CAMERA_BY_ID = {c["id"]: c for c in CAMERAS}
 
-FRAME_SKIP = 1
-PLAYBACK_SPEED = 1.6  # x realtime -- events happen sooner, demo doesn't sit idle
+FRAME_SKIP = 2  # bumped alongside PLAYBACK_SPEED so 5x doesn't peg CPU flat-out
+PLAYBACK_SPEED = 5  # x realtime -- events happen sooner, demo doesn't sit idle
 CROWD_THRESHOLD = 5
 FALL_COOLDOWN_SEC = 8
 CROWD_COOLDOWN_SEC = 8
