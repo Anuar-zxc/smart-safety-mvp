@@ -27,8 +27,8 @@ CAMERAS = [
 ]
 CAMERA_BY_ID = {c["id"]: c for c in CAMERAS}
 
-FRAME_SKIP = 2  # bumped alongside PLAYBACK_SPEED so 5x doesn't peg CPU flat-out
-PLAYBACK_SPEED = 5  # x realtime -- events happen sooner, demo doesn't sit idle
+FRAME_SKIP = 2  # process every 2nd frame -- keeps sustained CPU in check
+TARGET_FPS = 28  # fixed display rate for every camera, independent of source fps
 CROWD_THRESHOLD = 5
 FALL_COOLDOWN_SEC = 8
 CROWD_COOLDOWN_SEC = 8
@@ -588,7 +588,7 @@ with left_col:
         is_active = st.session_state.active_cam == cam["id"]
         prefix = "▶ " if is_active else ""
         with col:
-            if col.button(f"{prefix}{dot} {cam['name']}", key=f"camtab_{cam['id']}", width="stretch"):
+            if col.button(f"{prefix}{dot} {cam['name']} · {TARGET_FPS} FPS", key=f"camtab_{cam['id']}", width="stretch"):
                 cam_click = cam["id"]
 
     controls = st.columns([1, 1, 3])
@@ -721,13 +721,12 @@ def process_video():
     has_pose = st.session_state.has_pose
     tracker = st.session_state.trackers[cam_id]
 
-    # Pace the loop instead of spinning the CPU flat-out (an unthrottled loop is
-    # what got the whole app CPU-throttled on Streamlit Cloud's free tier during
-    # testing) -- but play back at PLAYBACK_SPEED times the source fps so footage
-    # doesn't sit at real-world 1x speed waiting for an event to happen.
-    source_fps = cap.get(cv2.CAP_PROP_FPS) or 15
-    frame_interval = 1.0 / (source_fps * PLAYBACK_SPEED)
+    # Pace to a fixed TARGET_FPS for every camera regardless of source encoding,
+    # instead of spinning the CPU flat-out (an unthrottled loop is what got the
+    # whole app CPU-throttled on Streamlit Cloud's free tier during testing).
+    frame_interval = 1.0 / TARGET_FPS
     last_frame_time = time.time()
+    fps_ema = TARGET_FPS  # smoothed achieved-fps readout, for the on-screen OSD
 
     while st.session_state.running and st.session_state.active_cam == cam_id:
         ret, frame = cap.read()
@@ -742,6 +741,9 @@ def process_video():
         elapsed = time.time() - last_frame_time
         if elapsed < frame_interval:
             time.sleep(frame_interval - elapsed)
+        loop_dt = time.time() - last_frame_time
+        if loop_dt > 0:
+            fps_ema = 0.9 * fps_ema + 0.1 * (1.0 / loop_dt)
         last_frame_time = time.time()
 
         detections = detect_people(frame, model, has_pose, conf=DETECT_CONF)
@@ -821,6 +823,19 @@ def process_video():
                          (0, 165, 255) if status_text == "CROWD" else (0, 200, 0))
         cv2.putText(display, f"Status: {status_text}", (20, display.shape[0] - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
+
+        # CCTV-style on-screen display: camera id, live timestamp, REC dot top-left;
+        # achieved fps bottom-right -- both a real diagnostic and a realism touch.
+        osd_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        cv2.putText(display, f"{cam['name'].upper()}", (20, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.62, (255, 255, 255), 2)
+        cv2.putText(display, osd_time, (20, 52),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (210, 210, 210), 1)
+        cv2.circle(display, (display.shape[1] - 110, 22), 5, (0, 0, 255), -1)
+        cv2.putText(display, "REC", (display.shape[1] - 98, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
+        cv2.putText(display, f"{fps_ema:.0f} FPS", (display.shape[1] - 110, display.shape[0] - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 180, 180), 1)
 
         display_rgb = cv2.cvtColor(display, cv2.COLOR_BGR2RGB)
         video_slot.image(display_rgb, width="stretch",
@@ -918,10 +933,10 @@ FAQ_ITEMS = [
      "В этом прототипе — это заглушка: статус алерта в интерфейсе меняется на «Наряд передан». "
      "Реальная интеграция с диспетчерской службой (API, SMS, пуш-уведомление) не входит в объём MVP, "
      "но именно в эту точку она бы подключалась."),
-    ("Почему видео проигрывается в ускоренном темпе?",
-     "Чтобы не ждать реального времени до следующего события на демонстрации — воспроизведение идёт "
-     "в 1.6 раза быстрее реального, при этом обработка кадров всё равно ограничена по CPU, "
-     "чтобы не создавать чрезмерную нагрузку на сервер."),
+    ("На какой частоте кадров работает система?",
+     "Каждая камера выводится на фиксированных 28 FPS независимо от частоты кадров исходного файла — "
+     "текущее значение видно прямо на видео (правый нижний угол). Обрабатывается каждый второй кадр, "
+     "чтобы не создавать чрезмерную нагрузку на CPU при таком темпе."),
     ("Почему в системе всего 3 камеры?",
      "Это прототип для демонстрации подхода, не production-система. Добавить N-ю камеру — значит добавить "
      "ещё один элемент в список CAMERAS с своим видео и локацией; остальная логика (трекер, алерты, карта) "
