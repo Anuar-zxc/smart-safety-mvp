@@ -304,21 +304,107 @@ hr { border-color: var(--border) !important; margin: 12px 0 !important; }
 /* FAQ */
 div[data-testid="stExpander"] {
     background: var(--panel) !important; border: 1px solid var(--border) !important;
-    border-radius: 12px !important; margin-bottom: 10px;
+    border-radius: 12px !important; margin-bottom: 10px; transition: border-color 0.15s ease;
 }
+div[data-testid="stExpander"]:hover { border-color: rgba(210,35,42,0.35) !important; }
 div[data-testid="stExpander"] summary {
     font-weight: 600 !important; font-size: 0.92rem !important; color: var(--text) !important;
 }
 div[data-testid="stExpander"] p { color: var(--text-dim) !important; font-size: 0.88rem !important; line-height: 1.6 !important; }
 
+/* hero glow backdrop */
+.hero-glow {
+    position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+    width: 900px; height: 500px; pointer-events: none; z-index: 0; opacity: 0.55;
+    background:
+        radial-gradient(circle at 25% 30%, rgba(210,35,42,0.35), transparent 55%),
+        radial-gradient(circle at 75% 20%, rgba(79,107,255,0.18), transparent 50%);
+    filter: blur(40px); animation: drift 12s ease-in-out infinite alternate;
+}
+@keyframes drift {
+    0% { transform: translateX(-52%) translateY(0px); }
+    100% { transform: translateX(-48%) translateY(18px); }
+}
+.hero { position: relative; z-index: 1; }
+
+/* stack chips */
+.stack-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+.stack-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; font-weight: 500;
+    color: var(--text-dim); background: var(--panel); border: 1px solid var(--border);
+    padding: 5px 11px; border-radius: 7px;
+}
+
+/* hero actions */
+.hero-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 48px; }
+.hero-cta {
+    position: relative; overflow: hidden;
+    box-shadow: 0 8px 28px rgba(210,35,42,0.35);
+}
+.hero-cta::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.25) 45%, transparent 60%);
+    background-size: 250% 100%; background-position: 120% 0; transition: background-position 0.6s ease;
+}
+.hero-cta:hover::after { background-position: -20% 0; }
+.hero-secondary {
+    color: var(--text-dim) !important; text-decoration: none; font-weight: 600; font-size: 0.88rem;
+    display: inline-flex; align-items: center; gap: 6px; transition: color 0.15s ease;
+}
+.hero-secondary:hover { color: var(--text) !important; }
+
+/* impact stats bar */
+.impact-bar {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border: 1px solid var(--border); border-radius: 16px; margin-bottom: 44px; overflow: hidden;
+    background: var(--panel);
+}
+.impact-item {
+    padding: 22px 20px; border-right: 1px solid var(--border); text-align: left;
+}
+.impact-item:last-child { border-right: none; }
+.impact-value {
+    font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em;
+    background: linear-gradient(120deg, var(--text), var(--accent) 140%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    font-family: 'JetBrains Mono', monospace;
+}
+.impact-label { font-size: 0.74rem; color: var(--text-dim); margin-top: 4px; font-weight: 500; }
+
+/* card hover lift, applied broadly */
+.about-card, .tech-card { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.about-card:hover, .tech-card:hover {
+    transform: translateY(-4px); border-color: rgba(210,35,42,0.4);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+.about-card .icon-badge2 { font-size: 22px; margin-bottom: 12px; display: block; }
+.stat-tile { transition: transform 0.2s ease, border-color 0.2s ease; }
+.stat-tile:hover { transform: translateY(-2px); border-color: rgba(210,35,42,0.4); }
+
 /* footer */
 .site-footer {
-    margin-top: 60px; padding: 28px 0 10px 0; border-top: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    margin-top: 60px; padding: 36px 0 24px 0; border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 24px;
 }
-.site-footer .foot-brand { font-weight: 700; color: var(--text); font-size: 0.92rem; }
+.site-footer .foot-col h5 {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-dim); margin: 0 0 14px 0;
+}
+.site-footer .foot-brand {
+    display: flex; align-items: center; gap: 8px; font-weight: 800; color: var(--text); font-size: 1rem; margin-bottom: 10px;
+}
+.site-footer .foot-desc { color: var(--text-dim); font-size: 0.82rem; line-height: 1.6; max-width: 320px; }
+.site-footer a.foot-link {
+    display: block; color: var(--text-dim); text-decoration: none; font-size: 0.85rem;
+    margin-bottom: 10px; transition: color 0.15s ease;
+}
+.site-footer a.foot-link:hover { color: var(--accent); }
+.site-footer .foot-bottom {
+    grid-column: 1 / -1; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+}
 .site-footer .foot-meta {
-    color: var(--text-dim); font-size: 0.78rem; font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim); font-size: 0.76rem; font-family: 'JetBrains Mono', monospace;
 }
 </style>
 """
@@ -335,6 +421,7 @@ st.markdown(
         </div>
     </div>
 
+    <div class="hero-glow"></div>
     <div class="hero">
         <div class="eyebrow-badge"><span class="dot"></span>Видеоаналитика для городской безопасности</div>
         <h1>Мы видим то,<br><span class="accent">что действительно важно.</span></h1>
@@ -342,23 +429,43 @@ st.markdown(
             Система разбирает видеопоток покадрово с помощью YOLO11-pose, отслеживает людей и автоматически
             распознаёт падения, драки и опасные скопления людей — без участия оператора, с оповещением
             и передачей наряда в один клик.</div>
-        <a class="hero-cta" href="#dashboard-anchor">Смотреть демо ↓</a>
+        <div class="stack-row">
+            <span class="stack-chip">YOLO11-pose</span>
+            <span class="stack-chip">OpenCV</span>
+            <span class="stack-chip">Streamlit</span>
+            <span class="stack-chip">Python</span>
+            <span class="stack-chip">100% open-source</span>
+        </div>
+        <div class="hero-actions">
+            <a class="hero-cta" href="#dashboard-anchor">Смотреть демо ↓</a>
+            <a class="hero-secondary" href="#tech-anchor">Как это устроено →</a>
+        </div>
+    </div>
+
+    <div class="impact-bar">
+        <div class="impact-item"><div class="impact-value">3</div><div class="impact-label">типа угроз под наблюдением</div></div>
+        <div class="impact-item"><div class="impact-value">3</div><div class="impact-label">независимые камеры онлайн</div></div>
+        <div class="impact-item"><div class="impact-value">&lt;1с</div><div class="impact-label">до появления тревоги на карте</div></div>
+        <div class="impact-item"><div class="impact-value">24/7</div><div class="impact-label">автономный мониторинг без оператора</div></div>
     </div>
 
     <div class="about-row">
         <div class="about-card">
+            <span class="icon-badge2">😴</span>
             <div class="num">01</div>
             <h4>Зачем</h4>
             <p>Операторы физически не могут одинаково внимательно следить за десятками экранов часами —
                 усталость и рутина снижают реакцию на реальные ЧП.</p>
         </div>
         <div class="about-card">
+            <span class="icon-badge2">🧠</span>
             <div class="num">02</div>
             <h4>Как</h4>
             <p>YOLO11-pose детектирует людей и их позу на каждом кадре, эвристики отслеживают резкое изменение
                 позы, скорость и перекрытие боксов между людьми.</p>
         </div>
         <div class="about-card">
+            <span class="icon-badge2">🚓</span>
             <div class="num">03</div>
             <h4>Что дальше</h4>
             <p>При срабатывании — тревога на карте, запись в ленту событий и кнопка «Отправить наряд»
@@ -828,8 +935,27 @@ for question, answer in FAQ_ITEMS:
 st.markdown(
     """
     <div class="site-footer">
-        <div class="foot-brand">🛡️ Smart Safety</div>
-        <div class="foot-meta">YOLO11-pose · OpenCV · Streamlit — прототип для хакатона по цифровизации города</div>
+        <div class="foot-col">
+            <div class="foot-brand">🛡️ Smart Safety</div>
+            <div class="foot-desc">Прототип ситуационного центра видеоаналитики для городской безопасности —
+                собран за один хакатон, полностью на открытом стеке компьютерного зрения.</div>
+        </div>
+        <div class="foot-col">
+            <h5>Продукт</h5>
+            <a class="foot-link" href="#dashboard-anchor">Живое демо</a>
+            <a class="foot-link" href="#tech-anchor">Технологии</a>
+            <a class="foot-link" href="#faq-anchor">FAQ</a>
+        </div>
+        <div class="foot-col">
+            <h5>Стек</h5>
+            <a class="foot-link" href="https://github.com/ultralytics/ultralytics" target="_blank">YOLO11-pose</a>
+            <a class="foot-link" href="https://opencv.org" target="_blank">OpenCV</a>
+            <a class="foot-link" href="https://streamlit.io" target="_blank">Streamlit</a>
+        </div>
+        <div class="foot-bottom">
+            <div class="foot-meta">© 2026 Smart Safety — прототип для хакатона по цифровизации города</div>
+            <div class="foot-meta">Сделано на Python · открытый код</div>
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
